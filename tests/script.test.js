@@ -1,8 +1,6 @@
 /**
  * @jest-environment jsdom
  */
-
-// tests/script.test.js
 const fs = require('fs');
 const path = require('path');
 
@@ -31,7 +29,6 @@ describe('Client-side script (script.js)', () => {
       <a id="original-url"></a>
       <h1 id="page-title"></h1>
     `;
-    
     // Clear any cached modules so that the script runs fresh each time.
     jest.resetModules();
   });
@@ -39,10 +36,8 @@ describe('Client-side script (script.js)', () => {
   test('should show error if URL input is empty', () => {
     // Load the script file from public/script.js.
     require('../public/script.js');
-    
     // Simulate DOMContentLoaded so the script registers its event listeners.
     document.dispatchEvent(new Event('DOMContentLoaded'));
-    
     // Simulate form submission without a URL.
     const form = document.getElementById('url-form');
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
@@ -53,7 +48,7 @@ describe('Client-side script (script.js)', () => {
   });
   
   test('should handle successful fetch and update DOM', async () => {
-    // Prepare a fake response for fetch.
+    // Prepare a fake successful response.
     const fakeResponseData = {
       title: 'Fale University Test Page',
       content: '<html><body><h1>Welcome to Fale University</h1></body></html>'
@@ -90,5 +85,55 @@ describe('Client-side script (script.js)', () => {
     const contentDisplay = document.getElementById('content-display');
     const iframe = contentDisplay.querySelector('iframe');
     expect(iframe).not.toBeNull();
+    
+    // Simulate the iframe load event to trigger onload branch.
+    if (iframe && typeof iframe.onload === 'function') {
+      iframe.onload();
+    }
+  });
+  
+  test('should show error when fetch response is not ok', async () => {
+    // Simulate a response with ok: false.
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: 'Simulated error' })
+    });
+    
+    require('../public/script.js');
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    
+    // Provide a valid URL.
+    const urlInput = document.getElementById('url-input');
+    urlInput.value = 'https://example.com';
+    
+    // Submit the form.
+    const form = document.getElementById('url-form');
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    const errorMessage = document.getElementById('error-message');
+    expect(errorMessage.textContent).toBe('Simulated error');
+    expect(errorMessage.classList.contains('hidden')).toBe(false);
+  });
+  
+  test('should show error when fetch throws exception', async () => {
+    // Simulate fetch rejecting (e.g. network failure).
+    global.fetch = jest.fn().mockRejectedValue(new Error('Network failure'));
+    
+    require('../public/script.js');
+    document.dispatchEvent(new Event('DOMContentLoaded'));
+    
+    const urlInput = document.getElementById('url-input');
+    urlInput.value = 'https://example.com';
+    
+    const form = document.getElementById('url-form');
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    const errorMessage = document.getElementById('error-message');
+    expect(errorMessage.textContent).toBe('Network failure');
+    expect(errorMessage.classList.contains('hidden')).toBe(false);
   });
 });
